@@ -1,2 +1,2 @@
 # UVV
-Desenvolvimento durante o período de graduação Ciência da Computação 2021 - 2023
+Desenvolvimento durante o período de graduação Ciência da Computação UVV 2021 - 2023
