@@ -12,8 +12,8 @@
 [\n]+                                { console.log('Token: BRANCO'); }
 [\r]+                                { console.log('Token: BRANCO'); }
 [ ]+                                 { console.log('Token: BRANCO'); }
-#[\/\'\"a-zA-Zà-úÀ-Ú0-9._,-\s]+[\r\n]+                                 { console.log('Token: IMPORT'); }
-[\/\/]+[\&\!\|\'\"a-zA-Zà-úÀ-Ú0-9._,-\s]+[\r\n]+                            { console.log('Token: COMMENT'); }
+[\#]+[\/\'\"a-zA-Zà-úÀ-Ú0-9._,-\s><*]+[\r\n]+                                 { console.log('Token: IMPORT'); }
+[\/\/]+[\&\!\|\'\"a-zA-Zà-úÀ-Ú0-9._,-\s><*]+[\r\n]+                            { console.log('Token: COMMENT'); }
 
 "int"                   { console.log('Token: INT');       return 'INT'; }
 "double"                { console.log('Token: DOUBLE');    return 'DOUBLE'; }
@@ -41,10 +41,10 @@
 ";"                     { console.log('Token: ;');         return ';'; }
 ":"                     { console.log('Token: :');         return ':'; }
 "."                     { console.log('Token: .');         return '.'; }
-"'"                     { console.log('Token: \'');        return "'"; }
 "\""                    { console.log('Token: \"');        return '"'; }
 "<"                     { console.log('Token: <');         return '<'; }
 ">"                     { console.log('Token: >');         return '>'; }
+"'"                     { console.log('Token: \'');        return "QUOTE"; }
 "!"                     { console.log('Token: NOT');       return 'NOT'; }
 "if"                    { console.log('Token: IF');        return 'IF'; }
 "switch"                { console.log('Token: SWITCH');    return 'SWITCH'; }
@@ -56,11 +56,10 @@
 "for"                   { console.log('Token: FOR');       return 'FOR'; }
 "VAR"                   { console.log('Token: VAR');       return 'VAR'; }
 "do"                    { console.log('Token: DO');        return 'DO'; }
-"do while"              { console.log('Token: DO WHILE');  return 'DO WHILE'; }
-"#"                     { console.log('Token: #');         return '#'; }
-"define"                { console.log('Token: DEFINE');    return 'DEFINE'; }
 "break"                 { console.log('Token: BREAK');     return 'BREAK'; }
 "continue"              { console.log('Token: CONTINUE');  return 'CONTINUE'; }
+"define"                { console.log('Token: DEFINE');    return 'DEFINE'; }
+// "#"                  { console.log('Token: #');         return '#'; }
 
 //regex
 [0-9]+"."[0-9]+(e[+-]?[0-9]+)?      return 'F_LIT';
@@ -99,21 +98,23 @@ corpo
 
 statements
   : statements statement
+  | statement statements
+  | statements statements
   | statement
+  | ';' EOF
   ;
   
 statement
   : '{' statement '}'
+  | '{''}'
   | '{' statements '}'
-  | '{' statements '}' EOF
   | expression_statement ';' {console.log('Expression Statement')}
   | expression_statement {console.log('Expression Statement')}
-  | import_stmt {console.log('Import')}
   | BREAK ';'{console.log('Break Statement')}
   | CONTINUE ';' {console.log('Continue Statement')}
   | if_stmt
   | value_lit
-  | tag_stmt
+  | do_stmt
   | switch_stmt {console.log('SWITCH Statement')}
   | repeat_statement
   | return_statement
@@ -134,14 +135,6 @@ if_stmt
     {console.log('IF MultipleLine Statement')}
   ;
 
-import_stmt
-  : '#' statement
-  ;
-
-tag_stmt
-  : '<' statement '>'
-  ;
-
 array_stmt
   : value_lit {console.log('Array');}
   | value_lit ',' array_stmt {console.log('Array');}
@@ -153,7 +146,7 @@ params_stmt
   ;
 
 switch_stmt
-  : SWITCH '(' IDF ')' '{' case_block '}'
+  : SWITCH expression '{' case_block '}'
     {console.log('Switch Statement');}
   ;
 
@@ -166,6 +159,7 @@ value_lit
   | INT_LIT {console.log('Integer Literal')}
   | CHAR_LIT {console.log('Character Literal')}
   | IDF {console.log('Character Literal')}
+  | 'QUOTE' IDF 'QUOTE' {console.log('Character Literal')}
   | value_lit'[' array_stmt ']'
   | '[' array_stmt ']'
   | parse_stmt value_lit
@@ -179,6 +173,7 @@ return_statement
 expression_statement
   : assignment_expression {console.log('Expression Statement: Assignment Expression');}
   | function_call {console.log('Expression Statement: Function Call');}
+  | expression {console.log('Expression Statement: Function Call');}
   ;
 
 var_type
@@ -196,11 +191,14 @@ var_type
   
 assignment_expression
   : var_type id '=' value_lit {console.log('Expression Statement: Assignment Expression');}
+  | id value_lit {console.log('Expression Statement: Assignment Expression');}
   | var_type id ';' {console.log('Expression Statement: Assignment Expression');}
   | var_type id '[' value_lit ']' '=' '{' array_stmt '}' {console.log('Expression Statement: Assignment Expression');}
   | var_type id '[' value_lit ']' ';' {console.log('Expression Statement: Assignment Expression');}
   | value_lit '=' value_lit
   | value_lit '=' expression
+  | id '=' value_lit
+  | expression '=' expression
   | value_lit '+''=' value_lit
   | value_lit '-''=' value_lit
   | value_lit '*''=' value_lit
@@ -218,6 +216,7 @@ id
 function_call
   : DEFINE IDF '(' params_stmt ')' '{' statement '}' {console.log('Expression Statement: Function Call');}
   | DEFINE IDF '(' params_stmt ')' ':' statement {console.log('Expression Statement: Function Call');}
+  | DEFINE assignment_expression {console.log('Expression Statement: Function Call');}
   | IDF '(' params_stmt ')' statement {console.log('Expression Statement: Function Call');}
   | IDF '(' params_stmt ')' ';' statement {console.log('Expression Statement: Function Call');}
   ;
@@ -234,18 +233,28 @@ case_statements
 
 case_statement
   : CASE value_lit ':' statements
-    {console.log('Case Statement');}
+  {console.log('Case Statement');}
+  | CASE value_lit ':'
   | DEFAULT ':' statements
     {console.log('Default Case Statement');}
   ;
 
-repeat_statement
-  : DO statements WHILE '(' conditional_expression ')' ';'
-    {console.log('Do-While Statement');}
-  | WHILE '(' conditional_expression ')' statements
-    {console.log('While Statement');}
-  | FOR '(' assignment_expression ';' conditional_expression ';' expression ')' statement
-    {console.log('For Statement');}
+do_stmt
+  : DO statement WHILE '(' conditional_expression ')' ';'
+    { console.log('Do-While Statement'); } 
+  ;
+
+repeat_statement  
+  : WHILE '(' conditional_expression ')' statements
+    { console.log('While Statement'); }
+  | FOR '(' assignment_expression ';' conditional_expression ';' expression ')' for_stmt
+    { console.log('For Statement'); }
+  ;
+  
+for_stmt
+  : '{''}'
+  | '{' statement '}'
+  | '{' statements '}'
   ;
 
 return_statement
@@ -274,6 +283,12 @@ expression
   | expression '*' expression
   | expression '/' expression
   | expression '^' expression
+  | '%' expression
+  | '+' expression
+  | '-' expression
+  | '*' expression
+  | '/' expression
+  | '^' expression
   | '-' expression
   | '(' expression ')'
   | expression '+' '+'
