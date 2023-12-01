@@ -1,82 +1,187 @@
 %{
-  var VAL_INT, VAL_DOUBLE; // Variáveis globais
-  var symTable = [];       // Tabela de símbolos
+
+  var escopoAtual = 0;
+  var tabelaSimbolos = [];
+  var tac = [];
+  var erros = [];
+  var dentroArray = false;
+
+  var tempVarCount = 0;
+
+function criarVariavel(tipo, nomes, valor, escopo) {
+    if (!Array.isArray(nomes)) {
+      nomes = [nomes];
+    }
+    
+    if (!valor.includes("{")) {
+      if(valor === "undefined") {
+        switch(tipo){
+          case "int": 
+            valor = 0;
+            break;
+          case "float":
+          case "double":
+            valor = 0.0;
+            break;
+          case "char":
+            valor = "";
+            break;
+          default:
+            break;
+        }
+      }      
+    }
+    
+    nomes.forEach(nome => {
+      let test = (tabelaSimbolos.filter(e => e.nome === nome)) 
+      if(test.length > 0) {
+        erros.push({type: "already exists", details: `--${nome}-- already exists`})
+        console.log(`Novo erro: \n
+          type: already exists \n
+          details: --${nome}-- already exists
+      `)
+        throw new Error(`--${nome}-- already exists`)
+        // return        
+      }
+      tabelaSimbolos.push({ tipo: tipo, nome: nome, valor: valor, escopo: escopo });
+  
+      console.log(`Variavel criada: \n
+        tipo: ${tipo} \n
+        nome: ${nome} \n
+        valor: ${valor} \n
+        escopo: ${escopo} \n
+      `);
+    });
+}
+
+function addInstruction(op, arg1, arg2, result) {
+  let test = (tac.filter(e => (e.arg1 === arg1 && e.arg2 === arg2)))
+  if(test.length > 0) {
+    tempVarCount--
+    return
+  }
+
+  varArg1 = tabelaSimbolos.find(e => e.nome === arg1)
+  varArg2 = tabelaSimbolos.find(e => e.nome === arg2)
+
+  let allowed = false
+  if(varArg1 && varArg2){
+    if(varArg1.tipo === varArg2.tipo) {
+      allowed = true
+    }
+    else{
+      erros.push({type: "types not equal", details: `--${arg1}-- & --${arg2}-- are not the same type`})
+        console.log(`Novo erro: \n
+          type: already exists \n
+          details: --${arg1}-- & --${arg2}-- are not the same type
+      `)
+        throw new Error(`--${arg1}-- & --${arg2}-- are not the same type`)
+    }
+
+    if(escopoAtual < varArg1.escopo || escopoAtual < varArg2.escopo) {
+      console.log(escopoAtual)
+      console.log(varArg1)
+      console.log(varArg2)
+      erros.push({type: "scope not reachable", details: `current scope is not reachable by either ${varArg1.nome} or ${varArg2.nome}`})
+      console.log(`Novo erro: \n
+      type: scope not reachable \n
+      details: current scope is not reachable by either ${varArg1.nome} or ${varArg2.nome}
+      `)
+      throw new Error(`current scope is not reachable by either ${varArg1.nome} or ${varArg2.nome}`)
+    }
+    else{
+      allowed = true
+    }
+  } else {    
+    allowed = true
+  }
+
+  if(allowed){
+    console.log(`Three Address Code criado: \n
+      operação: ${op} \n
+      arg1: ${arg1} \n
+      arg2: ${arg2} \n
+      resultado: ${result} \n
+      `)
+      tac.push({ op, arg1, arg2, result });
+  }
+}
+
+function createTempVar() {
+    return 't' + (tempVarCount++);
+}
+
+
 %}
   
 %lex
 %%
   
 //ignore
-[\s]+                                { console.log('Token: BRANCO'); }
-[\t]+                                { console.log('Token: BRANCO'); }
-[\n]+                                { console.log('Token: BRANCO'); }
-[\r]+                                { console.log('Token: BRANCO'); }
-[ ]+                                 { console.log('Token: BRANCO'); }
-[\#]+[\/\'\"a-zA-Zà-úÀ-Ú0-9._,-\s><*]+[\r\n]+                                 { console.log('Token: IMPORT'); }
-[\/\/]+[\&\!\|\'\"a-zA-Zà-úÀ-Ú0-9._,-\s><*]+[\r\n]+                            { console.log('Token: COMMENT'); }
+[\s]+                                {  }
+[\t]+                                {  }
+[\n]+                                {  }
+[\r]+                                {  }
+[ ]+                                 {  }
+[\#]+[\/\'\"a-zA-Zà-úÀ-Ú0-9._,-\s><*]+[\r\n]+                                 { }
+[\/\/]+[\&\!\|\'\"a-zA-Zà-úÀ-Ú0-9._,-\s><*]+[\r\n]+                           { }
 
-"int"                   { console.log('Token: INT');       return 'INT'; }
-"double"                { console.log('Token: DOUBLE');    return 'DOUBLE'; }
-"float"                 { console.log('Token: FLOAT');     return 'FLOAT'; }
-"char"                  { console.log('Token: CHAR');      return 'CHAR'; }
-"<="                    { console.log('Token: LE');        return 'LE'; }
-">="                    { console.log('Token: GE');        return 'GE'; }
-"=="                    { console.log('Token: EQ');        return 'EQ'; }
-"!="                    { console.log('Token: NE');        return 'NE'; }
-"&&"                    { console.log('Token: AND');       return 'AND'; }
-"||"                    { console.log('Token: OR');        return 'OR'; }
-"="                     { console.log('Token: =');         return '='; }
-"("                     { console.log('Token: (');         return '('; }
-")"                     { console.log('Token: )');         return ')'; }
-"["                     { console.log('Token: [');         return '['; }
-"]"                     { console.log('Token: ]');         return ']'; }
-"{"                     { console.log('Token: {');         return '{'; }
-"}"                     { console.log('Token: }');         return '}'; }
-"%"                     { console.log('Token: %');         return '%'; }
-"*"                     { console.log('Token: *');         return '*'; }
-"+"                     { console.log('Token: +');         return '+'; }
-"-"                     { console.log('Token: -');         return '-'; }
-"/"                     { console.log('Token: /');         return '/'; }
-","                     { console.log('Token: ,');         return ','; }
-";"                     { console.log('Token: ;');         return ';'; }
-":"                     { console.log('Token: :');         return ':'; }
-"."                     { console.log('Token: .');         return '.'; }
-"\""                    { console.log('Token: \"');        return '"'; }
-"<"                     { console.log('Token: <');         return '<'; }
-">"                     { console.log('Token: >');         return '>'; }
-"'"                     { console.log('Token: \'');        return "QUOTE"; }
-"!"                     { console.log('Token: NOT');       return 'NOT'; }
-"if"                    { console.log('Token: IF');        return 'IF'; }
-"switch"                { console.log('Token: SWITCH');    return 'SWITCH'; }
-"case"                  { console.log('Token: CASE');      return 'CASE'; }
-"break"                 { console.log('Token: BREAK');     return 'BREAK'; }
-"default"               { console.log('Token: DEFAULT');   return 'DEFAULT'; }
-"else"                  { console.log('Token: ELSE');      return 'ELSE'; }
-"while"                 { console.log('Token: WHILE');     return 'WHILE'; }
-"for"                   { console.log('Token: FOR');       return 'FOR'; }
-"VAR"                   { console.log('Token: VAR');       return 'VAR'; }
-"do"                    { console.log('Token: DO');        return 'DO'; }
-"break"                 { console.log('Token: BREAK');     return 'BREAK'; }
-"continue"              { console.log('Token: CONTINUE');  return 'CONTINUE'; }
-"define"                { console.log('Token: DEFINE');    return 'DEFINE'; }
+"{"                     { escopoAtual++; console.log(`-- escopo: ${escopoAtual} --`);      return '{'; }
+"}"                     { escopoAtual--; console.log(`-- escopo: ${escopoAtual} --`);      return '}'; }
+
+"int"                   { return 'INT'; }
+"double"                { return 'DOUBLE'; }
+"float"                 { return 'FLOAT'; }
+"char"                  { return 'CHAR'; }
+"<="                    { return 'LE'; }
+">="                    { return 'GE'; }
+"=="                    { return 'EQ'; }
+"!="                    { return 'NE'; }
+"&&"                    { return 'AND'; }
+"||"                    { return 'OR'; }
+"="                     { return '='; }
+"("                     { return '('; }
+")"                     { return ')'; }
+"["                     { return '['; }
+"]"                     { return ']'; }
+"%"                     { return '%'; }
+"*"                     { return '*'; }
+"+"                     { return '+'; }
+"-"                     { return '-'; }
+"/"                     { return '/'; }
+","                     { return ','; }
+";"                     { return ';'; }
+":"                     { return ':'; }
+"."                     { return '.'; }
+"\""                    { return '"'; }
+"<"                     { return '<'; }
+">"                     { return '>'; }
+"'"                     { return "QUOTE"; }
+"!"                     { return 'NOT'; }
+"if"                    { return 'IF'; }
+"switch"                { return 'SWITCH'; }
+"case"                  { return 'CASE'; }
+"break"                 { return 'BREAK'; }
+"default"               { return 'DEFAULT'; }
+"else"                  { return 'ELSE'; }
+"while"                 { return 'WHILE'; }
+"for"                   { return 'FOR'; }
+"VAR"                   { return 'VAR'; }
+"do"                    { return 'DO'; }
+"break"                 { return 'BREAK'; }
+"continue"              { return 'CONTINUE'; }
+"define"                { return 'DEFINE'; }
 // "#"                  { console.log('Token: #');         return '#'; }
 
 //regex
 [0-9]+"."[0-9]+(e[+-]?[0-9]+)?      return 'F_LIT';
-[0-9]+(e[+-]?[0-9]+)?               return 'F_LIT';
-[0-9]+                              { VAL_INT = parseInt(yytext); console.log('Token: INT_LIT'); return 'INT_LIT'}
-[a-zA-Z_][a-zA-Z0-9_.]*             { console.log('Token IDF'); return 'IDF'; }
-
-//regex
-// [a-zA-Z_][a-zA-Z0-9_.]*             { console.log('Token IDF'); return 'IDF'; }
-// [0-9]+                              { VAL_INT = parseInt(yytext); console.log('Token: INT_LIT'); return 'INT_LIT'}
-// [+-]?\d+(\.\d+)?([eE][+-]?\d+)?     { VAL_DOUBLE = parseFloat(yytext); console.log('Token: F_LIT'); return 'F_LIT'}
-// {VAL_DOUBLE}([eE][-+]?[0-9]+)?      { console.log('Token: F_LIT'); return 'F_LIT'}
-// \.[0-9]+([eE][-+]?[0-9]+)?          { VAL_DOUBLE = parseFloat(yytext); console.log('Token: F_LIT'); return 'F_LIT'}
+[0-9]+                              { VAL_INT = parseInt(yytext); return 'INT_LIT'}
+[a-zA-Z_][a-zA-Z0-9_.]*             { return 'IDF'; }
 
 .                                   { console.log('Erro léxico: caractere [', yytext, '] não reconhecido.'); return 'ERROR'}
                                                 
-<<EOF>>                             {console.log('Token EOF'); return 'EOF';}
+<<EOF>>                             { console.log('<<EOF>>'); return 'EOF'; }
+
 
 /lex
 
@@ -86,13 +191,28 @@
 %left '+' '-'
 %left '*' '/' '%'
 
-%start corpo
+%start body
 
 %% /* Gramática */
 
-corpo
-  : statements EOF {console.log('Corpo')}    
-  | '{' statements '}' EOF {console.log('Corpo')}
+body
+  : file {
+    console.log("\n")
+    console.log("Tabela de símbolos");
+    console.log(tabelaSimbolos);
+    console.log("\n\n")
+    console.log("Three Address Codes");
+    console.log(tac);
+    console.log("\n\n");
+    console.log("Erros");
+    console.log(erros);
+    console.log("\n\n");
+  }
+  ;
+
+file
+  : statements EOF
+  | '{' statements '}' EOF
   | EOF
   ;
 
@@ -108,46 +228,43 @@ statement
   : '{' statement '}'
   | '{''}'
   | '{' statements '}'
-  | expression_statement ';' {console.log('Expression Statement')}
-  | expression_statement {console.log('Expression Statement')}
-  | BREAK ';'{console.log('Break Statement')}
-  | CONTINUE ';' {console.log('Continue Statement')}
+  | expression_statement ';'
+  | expression_statement
+  | BREAK ';'
+  | CONTINUE ';' 
   | if_stmt
   | value_lit
   | do_stmt
-  | switch_stmt {console.log('SWITCH Statement')}
+  | switch_stmt 
   | repeat_statement
   | return_statement
   ;
 
 if_stmt
   : IF '(' conditional_expression ')' statement ELSE statement
-    {console.log('IF ELSE SingleLine Statement')}
   | IF '(' conditional_expression ')' statement
-    {console.log('IF SingleLine Statement')}
   | IF '(' conditional_expression ')' '{' statements '}'
-    {console.log('IF ELSE MultipleLine Statement')}
   | IF '(' conditional_expression ')' '{' statements '}'
-    {console.log('IF MultipleLine Statement')}
   | IF '(' conditional_expression ')' '{' statements '}' ELSE statement
-    {console.log('IF ELSE MultipleLine Statement')}
   | IF '(' conditional_expression ')' '{' statements '}' ELSE statements
-    {console.log('IF MultipleLine Statement')}
   ;
 
 array_stmt
-  : value_lit {console.log('Array');}
-  | value_lit ',' array_stmt {console.log('Array');}
+  : value_lit { $$ = [$1]; }
+  | array_stmt ',' value_lit { 
+      var tempArray = $1.slice();
+      tempArray.push($3);
+      $$ = tempArray;
+    }
   ;
-
+  
 params_stmt
-  : IDF {console.log('Params passed');}
-  | IDF ',' params_stmt {console.log('Params passed');}
+  : IDF 
+  | IDF ',' params_stmt 
   ;
 
 switch_stmt
   : SWITCH expression '{' case_block '}'
-    {console.log('Switch Statement');}
   ;
 
 parse_stmt
@@ -155,11 +272,11 @@ parse_stmt
   ;
 
 value_lit
-  : F_LIT {console.log('Floating Point Literal')}
-  | INT_LIT {console.log('Integer Literal')}
-  | CHAR_LIT {console.log('Character Literal')}
-  | IDF {console.log('Character Literal')}
-  | 'QUOTE' IDF 'QUOTE' {console.log('Character Literal')}
+  : F_LIT 
+  | INT_LIT 
+  | CHAR_LIT 
+  | IDF 
+  | 'QUOTE' IDF 'QUOTE'
   | value_lit'[' array_stmt ']'
   | '[' array_stmt ']'
   | parse_stmt value_lit
@@ -167,13 +284,13 @@ value_lit
   ;
 
 return_statement
-  : RETURN value_lit {console.log('Return Statement')}
+  : RETURN value_lit 
   ;
 
 expression_statement
-  : assignment_expression {console.log('Expression Statement: Assignment Expression');}
-  | function_call {console.log('Expression Statement: Function Call');}
-  | expression {console.log('Expression Statement: Function Call');}
+  : assignment_expression
+  | function_call
+  | expression 
   ;
 
 var_type
@@ -182,48 +299,42 @@ var_type
   | 'DOUBLE'
   | 'FLOAT'
   | 'CHAR'
-  | 'VAR'
-  | 'INT'
-  | 'DOUBLE'
-  | 'FLOAT'
-  | 'CHAR'
   ;
   
 assignment_expression
-  : var_type id '=' value_lit {console.log('Expression Statement: Assignment Expression');}
-  | id value_lit {console.log('Expression Statement: Assignment Expression');}
-  | var_type id ';' {console.log('Expression Statement: Assignment Expression');}
-  | var_type id '[' value_lit ']' '=' '{' array_stmt '}' {console.log('Expression Statement: Assignment Expression');}
-  | var_type id '[' value_lit ']' ';' {console.log('Expression Statement: Assignment Expression');}
+  : var_type id '=' expression                              { criarVariavel($1, $2, $4, escopoAtual); }
+  | var_type id ';'                                         { criarVariavel($1, $2, "undefined", escopoAtual); }
+  | var_type id '[' value_lit ']' ';'                       { criarVariavel($1, $2, "undefined", escopoAtual); }
+  | var_type id '[' value_lit ']' '=' '{' array_stmt '}'    { criarVariavel($1, $2, ($7 + $8 + $9), escopoAtual); }
   | value_lit '=' value_lit
   | value_lit '=' expression
   | id '=' value_lit
   | expression '=' expression
-  | value_lit '+''=' value_lit
-  | value_lit '-''=' value_lit
-  | value_lit '*''=' value_lit
-  | value_lit '/''=' value_lit
-  | value_lit '+' '+'
-  | value_lit '-' '-'
+  | value_lit '+''=' value_lit       { var tempVar = createTempVar(); addInstruction('+', $1, $4, tempVar); $$ = tempVar; }
+  | value_lit '-''=' value_lit       { var tempVar = createTempVar(); addInstruction('-', $1, $4, tempVar); $$ = tempVar; }
+  | value_lit '*''=' value_lit       { var tempVar = createTempVar(); addInstruction('*', $1, $4, tempVar); $$ = tempVar; }
+  | value_lit '/''=' value_lit       { var tempVar = createTempVar(); addInstruction('/', $1, $4, tempVar); $$ = tempVar; }
+  | value_lit '+' '+'                { var tempVar = createTempVar(); addInstruction('+', $1, 1, tempVar); $$ = tempVar; }
+  | value_lit '-' '-'                { var tempVar = createTempVar(); addInstruction('-', $1, 1, tempVar); $$ = tempVar; }
   | value_lit
   ;
 
 id
-  : IDF { symTable.push($1); } /* $1 representa o valor reconhecido de IDF */
-  | IDF ',' IDF { symTable.push($1); symTable.push($3);} /* $1 representa o valor reconhecido de IDF */
+  : IDF { $$ = [$1]; }
+  | id ',' IDF { $$ = $1; $$.push($3); }
   ;
 
 function_call
-  : DEFINE IDF '(' params_stmt ')' '{' statement '}' {console.log('Expression Statement: Function Call');}
-  | DEFINE IDF '(' params_stmt ')' ':' statement {console.log('Expression Statement: Function Call');}
-  | DEFINE assignment_expression {console.log('Expression Statement: Function Call');}
-  | IDF '(' params_stmt ')' statement {console.log('Expression Statement: Function Call');}
-  | IDF '(' params_stmt ')' ';' statement {console.log('Expression Statement: Function Call');}
+  : DEFINE IDF '(' params_stmt ')' '{' statement '}' 
+  | DEFINE IDF '(' params_stmt ')' ':' statement 
+  | DEFINE assignment_expression 
+  | IDF '(' params_stmt ')' statement 
+  | IDF '(' params_stmt ')' ';' statement 
   ;
 
 case_block
   : case_statements
-  | /* caso vazio ou outras regras conforme necessário */
+  | 
   ;
 
 case_statements
@@ -233,22 +344,17 @@ case_statements
 
 case_statement
   : CASE value_lit ':' statements
-  {console.log('Case Statement');}
   | CASE value_lit ':'
   | DEFAULT ':' statements
-    {console.log('Default Case Statement');}
   ;
 
 do_stmt
   : DO statement WHILE '(' conditional_expression ')' ';'
-    { console.log('Do-While Statement'); } 
   ;
 
 repeat_statement  
   : WHILE '(' conditional_expression ')' statements
-    { console.log('While Statement'); }
   | FOR '(' assignment_expression ';' conditional_expression ';' expression ')' for_stmt
-    { console.log('For Statement'); }
   ;
   
 for_stmt
@@ -259,7 +365,6 @@ for_stmt
 
 return_statement
   : RETURN value_lit ';'
-    {console.log('Return Statement');}
   ;
 
 conditional_expression
@@ -277,22 +382,22 @@ conditional_expression
   ;
 
 expression
-  : expression '%' expression
-  | expression '+' expression
-  | expression '-' expression
-  | expression '*' expression
-  | expression '/' expression
-  | expression '^' expression
-  | '%' expression
-  | '+' expression
-  | '-' expression
-  | '*' expression
-  | '/' expression
-  | '^' expression
-  | '-' expression
-  | '(' expression ')'
-  | expression '+' '+'
-  | expression '-' '-'
-  | conditional_expression 
+  : expression '%' expression  { var tempVar = createTempVar(); addInstruction('%', $1, $3, tempVar); $$ = tempVar; }
+  | expression '+' expression  { var tempVar = createTempVar(); addInstruction('+', $1, $3, tempVar); $$ = tempVar; }
+  | expression '-' expression  { var tempVar = createTempVar(); addInstruction('-', $1, $3, tempVar); $$ = tempVar; }
+  | expression '*' expression  { var tempVar = createTempVar(); addInstruction('*', $1, $3, tempVar); $$ = tempVar; }
+  | expression '/' expression  { var tempVar = createTempVar(); addInstruction('/', $1, $3, tempVar); $$ = tempVar; }
+  | expression '^' expression  { var tempVar = createTempVar(); addInstruction('^', $1, $3, tempVar); $$ = tempVar; }
+  | '%' expression             { var tempVar = createTempVar(); addInstruction('%', $$, $2, tempVar); $$ = tempVar; }
+  | '+' expression             { var tempVar = createTempVar(); addInstruction('+', $$, $2, tempVar); $$ = tempVar; }
+  | '-' expression             { var tempVar = createTempVar(); addInstruction('-', $$, $2, tempVar); $$ = tempVar; }
+  | '*' expression             { var tempVar = createTempVar(); addInstruction('*', $$, $2, tempVar); $$ = tempVar; }
+  | '/' expression             { var tempVar = createTempVar(); addInstruction('/', $$, $2, tempVar); $$ = tempVar; }
+  | '^' expression             { var tempVar = createTempVar(); addInstruction('^', $$, $2, tempVar); $$ = tempVar; }
+  | '-' expression             { var tempVar = createTempVar(); addInstruction('-', $$, $2, tempVar); $$ = tempVar; }
+  | expression '+' '+'         { var tempVar = createTempVar(); addInstruction('+', $1, 1, tempVar); $$ = tempVar; }
+  | expression '-' '-'         { var tempVar = createTempVar(); addInstruction('-', $1, 1, tempVar); $$ = tempVar; }
+  | '(' expression ')'         
+  | conditional_expression     
   | value_lit
   ;
